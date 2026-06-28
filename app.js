@@ -29,7 +29,7 @@ function loadForm() {
   try {
     const data = JSON.parse(raw);
     document.querySelector("#clientId").value = data.clientId || "";
-    document.querySelector("#playlistName").value = data.playlistName || "My 3-hour loop";
+    document.querySelector("#playlistName").value = data.playlistName || "3時間ループ";
     document.querySelector("#targetMinutes").value = data.targetMinutes || "180";
     document.querySelector("#bufferSeconds").value = data.bufferSeconds || "1";
     document.querySelector("#isPublic").checked = Boolean(data.isPublic);
@@ -47,7 +47,7 @@ function loadForm() {
 function getFormData() {
   return {
     clientId: document.querySelector("#clientId").value.trim(),
-    playlistName: document.querySelector("#playlistName").value.trim() || "My 3-hour loop",
+    playlistName: document.querySelector("#playlistName").value.trim() || "3時間ループ",
     trackUrls: Array.from(document.querySelectorAll("[name='trackUrl']")).map((input) => input.value.trim()),
     durations: Array.from(document.querySelectorAll("[name='duration']")).map((input) => input.value.trim()),
     targetMinutes: document.querySelector("#targetMinutes").value.trim() || "180",
@@ -61,7 +61,7 @@ function parseTrackId(value) {
   const match = value.match(/\/track\/([A-Za-z0-9]+)/);
   if (match) return match[1];
   if (/^[A-Za-z0-9]{22}$/.test(value)) return value;
-  throw new Error(`Could not read a Spotify track ID from: ${value}`);
+  throw new Error(`Spotifyの曲URLとして読み取れませんでした: ${value}`);
 }
 
 function parseDuration(value) {
@@ -69,10 +69,10 @@ function parseDuration(value) {
   if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(Number(trimmed) * 1000);
   const parts = trimmed.split(":").map((part) => Number(part));
   if (![2, 3].includes(parts.length) || parts.some((part) => !Number.isInteger(part))) {
-    throw new Error(`Track length must look like 3:45 or 1:02:03: ${value}`);
+    throw new Error(`曲の長さは 3:45 または 1:02:03 のように入力してください: ${value}`);
   }
   const [hours, minutes, seconds] = parts.length === 2 ? [0, parts[0], parts[1]] : parts;
-  if (minutes >= 60 || seconds >= 60) throw new Error(`Invalid track length: ${value}`);
+  if (minutes >= 60 || seconds >= 60) throw new Error(`曲の長さが正しくありません: ${value}`);
   return ((hours * 3600) + (minutes * 60) + seconds) * 1000;
 }
 
@@ -87,7 +87,7 @@ function msToHms(ms) {
 
 function buildLoop(trackUris, durationsMs, targetMs, bufferMs) {
   const limitMs = targetMs - bufferMs;
-  if (limitMs <= 0) throw new Error("Buffer seconds must be smaller than target duration.");
+  if (limitMs <= 0) throw new Error("余白は目標時間より短くしてください。");
   const items = [];
   let totalMs = 0;
   let index = 0;
@@ -96,7 +96,7 @@ function buildLoop(trackUris, durationsMs, targetMs, bufferMs) {
     totalMs += durationsMs[index];
     index = (index + 1) % trackUris.length;
   }
-  if (!items.length) throw new Error("No track fits within the target duration.");
+  if (!items.length) throw new Error("指定した目標時間内に曲が入りません。");
   return { items, totalMs };
 }
 
@@ -122,7 +122,7 @@ function randomString(length = 64) {
 
 async function startLogin() {
   const data = getFormData();
-  if (!data.clientId) throw new Error("Enter your Spotify Client ID.");
+  if (!data.clientId) throw new Error("SpotifyのClient IDを入力してください。");
   saveForm();
   const verifier = randomString(96);
   const challenge = base64Url(await sha256(verifier));
@@ -144,7 +144,7 @@ async function startLogin() {
 async function exchangeCode(code, state) {
   const pkce = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "{}");
   const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  if (!pkce.verifier || pkce.state !== state) throw new Error("Spotify login state could not be verified.");
+  if (!pkce.verifier || pkce.state !== state) throw new Error("Spotifyログインの確認に失敗しました。もう一度作成を押してください。");
   const body = new URLSearchParams({
     client_id: data.clientId,
     grant_type: "authorization_code",
@@ -158,7 +158,7 @@ async function exchangeCode(code, state) {
     body,
   });
   const json = await response.json();
-  if (!response.ok) throw new Error(json.error_description || json.error || "Spotify token request failed.");
+  if (!response.ok) throw new Error(json.error_description || json.error || "Spotifyの認証トークン取得に失敗しました。");
   sessionStorage.removeItem(PKCE_KEY);
   const token = {
     accessToken: json.access_token,
@@ -198,7 +198,7 @@ async function spotifyFetch(path, options = {}) {
   const text = await response.text();
   const json = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    const message = json.error?.message || json.error || `Spotify API error ${response.status}`;
+    const message = json.error?.message || json.error || `Spotify APIエラー ${response.status}`;
     const error = new Error(message);
     error.status = response.status;
     throw error;
@@ -211,7 +211,7 @@ async function lookupDurations(trackIds) {
     const response = await spotifyFetch(`/tracks?ids=${trackIds.join(",")}`);
     const tracks = response?.tracks || [];
     if (tracks.length !== 3 || tracks.some((track) => !track)) {
-      throw new Error("Spotify did not return all tracks.");
+      throw new Error("Spotifyから3曲すべての情報を取得できませんでした。");
     }
     const durations = tracks.map((track) => track.duration_ms);
     document.querySelectorAll("[name='duration']").forEach((input, index) => {
@@ -222,7 +222,7 @@ async function lookupDurations(trackIds) {
     return durations;
   } catch (error) {
     if (error.status === 403) {
-      throw new Error("Spotify blocked automatic duration lookup. Enter all three lengths manually, like 3:45.");
+      throw new Error("Spotifyが曲の長さの自動取得を拒否しました。3曲すべての長さを 3:45 のように手入力してください。");
     }
     throw error;
   }
@@ -249,7 +249,7 @@ async function createPlaylist() {
     body: JSON.stringify({
       name: data.playlistName,
       public: Boolean(data.isPublic),
-      description: `Auto-built 3-track loop. Length ${msToHms(totalMs)}, ${items.length} items.`,
+      description: `3曲ループを自動作成。長さ ${msToHms(totalMs)}、${items.length}件。`,
     }),
   });
 
@@ -262,10 +262,10 @@ async function createPlaylist() {
 
   result.hidden = false;
   result.innerHTML = `
-    <h2>Playlist created</h2>
+    <h2>プレイリストを作成しました</h2>
     <p><strong>${escapeHtml(playlist.name)}</strong></p>
-    <p>${items.length} items / ${msToHms(totalMs)}</p>
-    <a class="button" href="${playlist.external_urls.spotify}" target="_blank" rel="noreferrer">Open in Spotify</a>
+    <p>${items.length}件 / ${msToHms(totalMs)}</p>
+    <a class="button" href="${playlist.external_urls.spotify}" target="_blank" rel="noreferrer">Spotifyで開く</a>
   `;
   result.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -283,7 +283,7 @@ function escapeHtml(text) {
 function setBusy(isBusy) {
   const button = document.querySelector("#createButton");
   button.disabled = isBusy;
-  button.textContent = isBusy ? "Working..." : "Create playlist";
+  button.textContent = isBusy ? "処理中..." : "プレイリストを作成";
 }
 
 async function handleCallback() {
@@ -293,18 +293,18 @@ async function handleCallback() {
   const error = params.get("error");
   if (error) {
     callbackNotice.hidden = false;
-    callbackNotice.textContent = `Spotify login failed: ${error}`;
+    callbackNotice.textContent = `Spotifyログインに失敗しました: ${error}`;
     history.replaceState(null, "", redirectUri());
     return;
   }
   if (!code) return;
   callbackNotice.hidden = false;
-  callbackNotice.textContent = "Spotify login complete. Creating playlist...";
+  callbackNotice.textContent = "Spotifyログインが完了しました。プレイリストを作成しています...";
   try {
     setBusy(true);
     await exchangeCode(code, state);
     await createPlaylist();
-    callbackNotice.textContent = "Done.";
+    callbackNotice.textContent = "完了しました。";
   } catch (err) {
     callbackNotice.textContent = err.message;
   } finally {
@@ -328,7 +328,7 @@ form.addEventListener("submit", async (event) => {
     await createPlaylist();
   } catch (err) {
     result.hidden = false;
-    result.innerHTML = `<h2>Could not create playlist</h2><p>${escapeHtml(err.message)}</p>`;
+    result.innerHTML = `<h2>プレイリストを作成できませんでした</h2><p>${escapeHtml(err.message)}</p>`;
   } finally {
     setBusy(false);
   }
@@ -336,9 +336,9 @@ form.addEventListener("submit", async (event) => {
 
 document.querySelector("#copyRedirect").addEventListener("click", async () => {
   await navigator.clipboard.writeText(redirectUri());
-  document.querySelector("#copyRedirect").textContent = "Copied";
+  document.querySelector("#copyRedirect").textContent = "コピーしました";
   setTimeout(() => {
-    document.querySelector("#copyRedirect").textContent = "Copy";
+    document.querySelector("#copyRedirect").textContent = "コピー";
   }, 1200);
 });
 
@@ -346,7 +346,7 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
   form.reset();
-  document.querySelector("#playlistName").value = "My 3-hour loop";
+  document.querySelector("#playlistName").value = "3時間ループ";
   document.querySelector("#targetMinutes").value = "180";
   document.querySelector("#bufferSeconds").value = "1";
   result.hidden = true;
