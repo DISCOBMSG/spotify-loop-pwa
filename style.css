@@ -94,6 +94,41 @@ input:focus {
   outline: 3px solid rgba(29, 185, 84, 0.16);
 }
 
+.clearable-input {
+  display: block;
+  position: relative;
+}
+
+.clearable-input input {
+  padding-right: 42px;
+}
+
+.input-clear {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  padding: 0;
+  background: #eef3f0;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.input-clear:hover {
+  background: #dce6e1;
+  color: var(--text);
+}
+
+.input-clear[hidden] {
+  display: none;
+}
+
 .redirect-box {
   display: grid;
   grid-template-columns: 1fr auto;

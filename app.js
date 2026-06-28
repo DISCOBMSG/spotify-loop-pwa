@@ -45,6 +45,43 @@ function loadForm() {
   }
 }
 
+function updateClearButton(input) {
+  const button = input.parentElement?.querySelector(".input-clear");
+  if (button) button.hidden = !input.value;
+}
+
+function refreshClearButtons() {
+  document.querySelectorAll(".clearable-input input").forEach(updateClearButton);
+}
+
+function installInputClearButtons() {
+  document.querySelectorAll("input:not([type='checkbox'])").forEach((input) => {
+    if (input.id === "clientId") return;
+    if (input.closest(".clearable-input")) return;
+
+    const wrapper = document.createElement("span");
+    wrapper.className = "clearable-input";
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "input-clear";
+    button.textContent = "×";
+    button.title = "入力を消去";
+    button.setAttribute("aria-label", "入力を消去");
+    button.hidden = !input.value;
+    wrapper.appendChild(button);
+
+    input.addEventListener("input", () => updateClearButton(input));
+    button.addEventListener("click", () => {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    });
+  });
+}
+
 function getFormData() {
   return {
     clientId: document.querySelector("#clientId").value.trim(),
@@ -315,6 +352,7 @@ async function handleCallback() {
 redirectUriEl.textContent = redirectUri();
 setupRedirectUriEl.textContent = redirectUri();
 loadForm();
+installInputClearButtons();
 handleCallback();
 
 form.addEventListener("input", saveForm);
@@ -343,6 +381,19 @@ document.querySelector("#copyRedirect").addEventListener("click", async () => {
   }, 1200);
 });
 
+document.querySelector("#clearTracksButton").addEventListener("click", () => {
+  document.querySelectorAll("[name='trackUrl']").forEach((input) => {
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  document.querySelectorAll("[name='duration']").forEach((input) => {
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  result.hidden = true;
+  saveForm();
+});
+
 document.querySelector("#resetButton").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
@@ -351,6 +402,7 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   document.querySelector("#targetMinutes").value = "180";
   document.querySelector("#bufferSeconds").value = "1";
   result.hidden = true;
+  refreshClearButtons();
 });
 
 window.addEventListener("beforeinstallprompt", (event) => {
