@@ -55,6 +55,7 @@ p {
 
 .panel,
 .notice,
+.disclosure,
 .help {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -66,6 +67,16 @@ p {
 .notice {
   margin-bottom: 14px;
   border-color: rgba(29, 185, 84, 0.35);
+}
+
+.disclosure {
+  margin-bottom: 14px;
+  background: #fbfdfc;
+}
+
+.disclosure p {
+  color: #405047;
+  font-size: 14px;
 }
 
 .section-heading {

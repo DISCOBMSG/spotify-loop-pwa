@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1db954">
-  <title>Spotify 3時間ループ</title>
+  <title>3時間ループメーカー for Spotify</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
@@ -13,8 +13,8 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <h1>Spotify 3時間ループ</h1>
-        <p>3曲を指定時間ぎりぎりまで繰り返すSpotifyプレイリストを作成します。</p>
+        <h1>3時間ループメーカー for Spotify</h1>
+        <p>3曲を指定時間ぎりぎりまで繰り返すプレイリストを作成します。</p>
       </div>
       <button class="icon-button" id="installButton" type="button" hidden title="アプリとして追加" aria-label="アプリとして追加">
         <span aria-hidden="true">+</span>
@@ -23,10 +23,14 @@
 
     <section class="notice" id="callbackNotice" hidden></section>
 
+    <section class="disclosure" aria-label="公開時の注意">
+      <p>このツールはSpotify公式アプリではありません。入力内容はこのブラウザ内に保存され、サーバーには送信しません。Spotifyログインとプレイリスト作成にはSpotify Web APIを使用します。Client Secretは不要です。</p>
+    </section>
+
     <form id="playlistForm" class="panel">
       <div class="section-heading">
         <h2>Spotifyアプリ設定</h2>
-        <p>各ユーザーが自分のSpotify DeveloperアプリのClient IDを使います。Client Secretは不要です。</p>
+        <p>各ユーザーが自分のSpotify Developer Dashboardで作成したアプリのClient IDを使います。Client Secretは不要です。</p>
       </div>
 
       <label>
@@ -122,6 +126,7 @@
       <p>長さ欄を空にするとSpotifyから自動取得を試します。Spotify側で拒否された場合は、<code>3:45</code> のように手入力してください。</p>
       <p>長さ欄は入力後に欄を離れると、<code>356</code> は <code>3:56</code>、<code>1000</code> は <code>10:00</code> に整形されます。</p>
       <p>余白は、3時間を超えないように最後に空けておく秒数です。通常は <code>1</code> のままで問題ありません。</p>
+      <p>このツールはSpotify公式アプリではありません。入力内容はこのブラウザ内に保存され、サーバーには送信しません。</p>
       <p>スマホでは、SafariやChromeの共有メニューからホーム画面に追加するとアプリのように起動できます。</p>
     </details>
   </main>
