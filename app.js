@@ -12,6 +12,8 @@ const result = document.querySelector("#result");
 const redirectUriEl = document.querySelector("#redirectUri");
 const setupRedirectUriEl = document.querySelector("#setupRedirectUri");
 const installButton = document.querySelector("#installButton");
+const thirdTrackGroup = document.querySelector("#thirdTrackGroup");
+const addThirdTrackButton = document.querySelector("#addThirdTrackButton");
 
 let deferredInstallPrompt = null;
 
@@ -29,6 +31,8 @@ function loadForm() {
   if (!raw) return;
   try {
     const data = JSON.parse(raw);
+    const trackCount = Math.max(3, data.trackUrls?.length || 3);
+    ensureThirdTrackRows(trackCount - 2);
     document.querySelector("#clientId").value = data.clientId || "";
     document.querySelector("#playlistName").value = data.playlistName || "3時間ループ";
     document.querySelector("#targetMinutes").value = data.targetMinutes || "180";
@@ -54,32 +58,35 @@ function refreshClearButtons() {
   document.querySelectorAll(".clearable-input input").forEach(updateClearButton);
 }
 
-function installInputClearButtons() {
-  document.querySelectorAll("input:not([type='checkbox'])").forEach((input) => {
-    if (input.id === "clientId") return;
-    if (input.closest(".clearable-input")) return;
+function installInputClearButton(input) {
+  if (input.type === "checkbox") return;
+  if (input.id === "clientId") return;
+  if (input.closest(".clearable-input")) return;
 
-    const wrapper = document.createElement("span");
-    wrapper.className = "clearable-input";
-    input.parentNode.insertBefore(wrapper, input);
-    wrapper.appendChild(input);
+  const wrapper = document.createElement("span");
+  wrapper.className = "clearable-input";
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "input-clear";
-    button.textContent = "×";
-    button.title = "入力を消去";
-    button.setAttribute("aria-label", "入力を消去");
-    button.hidden = !input.value;
-    wrapper.appendChild(button);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "input-clear";
+  button.textContent = "×";
+  button.title = "入力を消去";
+  button.setAttribute("aria-label", "入力を消去");
+  button.hidden = !input.value;
+  wrapper.appendChild(button);
 
-    input.addEventListener("input", () => updateClearButton(input));
-    button.addEventListener("click", () => {
-      input.value = "";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.focus();
-    });
+  input.addEventListener("input", () => updateClearButton(input));
+  button.addEventListener("click", () => {
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
   });
+}
+
+function installInputClearButtons() {
+  document.querySelectorAll("input:not([type='checkbox'])").forEach(installInputClearButton);
 }
 
 function normalizeDurationText(value) {
@@ -102,10 +109,61 @@ function normalizeDurationInput(input) {
   }
 }
 
+function installDurationInput(input) {
+  if (input.dataset.durationInstalled) return;
+  input.dataset.durationInstalled = "true";
+  input.addEventListener("blur", () => normalizeDurationInput(input));
+}
+
 function installDurationShorthand() {
-  document.querySelectorAll("[name='duration']").forEach((input) => {
-    input.addEventListener("blur", () => normalizeDurationInput(input));
+  document.querySelectorAll("[name='duration']").forEach(installDurationInput);
+}
+
+function thirdTrackRows() {
+  return Array.from(document.querySelectorAll(".third-track"));
+}
+
+function renumberThirdTrackRows() {
+  thirdTrackRows().forEach((row, index) => {
+    const trackLabel = row.querySelector("label:first-child");
+    if (trackLabel?.firstChild) trackLabel.firstChild.textContent = `曲3-${index + 1}のURL`;
   });
+}
+
+function createThirdTrackRow() {
+  const row = document.createElement("div");
+  row.className = "track-row third-track";
+  row.innerHTML = `
+    <label>
+      曲3のURL
+      <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
+    </label>
+    <label>
+      長さ
+      <input name="duration" placeholder="2:58">
+    </label>
+    <button type="button" class="remove-track" title="この曲を削除" aria-label="この曲を削除">×</button>
+  `;
+  row.querySelectorAll("input").forEach((input) => {
+    installInputClearButton(input);
+    if (input.name === "duration") installDurationInput(input);
+  });
+  row.querySelector(".remove-track").addEventListener("click", () => {
+    row.remove();
+    renumberThirdTrackRows();
+    saveForm();
+  });
+  return row;
+}
+
+function ensureThirdTrackRows(count) {
+  while (thirdTrackRows().length < count) {
+    thirdTrackGroup.appendChild(createThirdTrackRow());
+  }
+  while (thirdTrackRows().length > count && thirdTrackRows().length > 1) {
+    thirdTrackRows().at(-1).remove();
+  }
+  renumberThirdTrackRows();
 }
 
 function getFormData({ normalizeDurations = false } = {}) {
@@ -156,14 +214,27 @@ function buildLoop(trackUris, durationsMs, targetMs, bufferMs) {
   if (limitMs <= 0) throw new Error("余白は目標時間より短くしてください。");
   const items = [];
   let totalMs = 0;
-  let index = 0;
-  while (totalMs + durationsMs[index] <= limitMs) {
-    items.push(trackUris[index]);
-    totalMs += durationsMs[index];
-    index = (index + 1) % trackUris.length;
+  let thirdIndex = 2;
+
+  while (true) {
+    const cycleIndexes = [0, 1, thirdIndex];
+    let addedInCycle = false;
+
+    for (const index of cycleIndexes) {
+      if (totalMs + durationsMs[index] > limitMs) {
+        if (!items.length) throw new Error("指定した目標時間内に曲が入りません。");
+        return { items, totalMs };
+      }
+      items.push(trackUris[index]);
+      totalMs += durationsMs[index];
+      addedInCycle = true;
+    }
+
+    if (addedInCycle) {
+      thirdIndex += 1;
+      if (thirdIndex >= trackUris.length) thirdIndex = 2;
+    }
   }
-  if (!items.length) throw new Error("指定した目標時間内に曲が入りません。");
-  return { items, totalMs };
 }
 
 async function sha256(text) {
@@ -276,8 +347,8 @@ async function lookupDurations(trackIds) {
   try {
     const response = await spotifyFetch(`/tracks?ids=${trackIds.join(",")}`);
     const tracks = response?.tracks || [];
-    if (tracks.length !== 3 || tracks.some((track) => !track)) {
-      throw new Error("Spotifyから3曲すべての情報を取得できませんでした。");
+    if (tracks.length !== trackIds.length || tracks.some((track) => !track)) {
+      throw new Error("Spotifyからすべての曲情報を取得できませんでした。");
     }
     const durations = tracks.map((track) => track.duration_ms);
     document.querySelectorAll("[name='duration']").forEach((input, index) => {
@@ -288,7 +359,7 @@ async function lookupDurations(trackIds) {
     return durations;
   } catch (error) {
     if (error.status === 403) {
-      throw new Error("Spotifyが曲の長さの自動取得を拒否しました。3曲すべての長さを 3:45 のように手入力してください。");
+      throw new Error("Spotifyが曲の長さの自動取得を拒否しました。すべての曲の長さを 3:45 のように手入力してください。");
     }
     throw error;
   }
@@ -314,7 +385,7 @@ async function createPlaylist() {
     body: JSON.stringify({
       name: data.playlistName,
       public: Boolean(data.isPublic),
-      description: `3曲ループ。長さ ${msToHms(totalMs)}、${items.length}件。`,
+      description: `${trackUris.length === 3 ? "3曲ループ" : "曲3ローテーション"}。長さ ${msToHms(totalMs)}、${items.length}件。`,
     }),
   });
 
@@ -410,7 +481,15 @@ document.querySelector("#copyRedirect").addEventListener("click", async () => {
   }, 1200);
 });
 
+addThirdTrackButton.addEventListener("click", () => {
+  thirdTrackGroup.appendChild(createThirdTrackRow());
+  renumberThirdTrackRows();
+  saveForm();
+  thirdTrackRows().at(-1).querySelector("[name='trackUrl']").focus();
+});
+
 document.querySelector("#clearTracksButton").addEventListener("click", () => {
+  ensureThirdTrackRows(1);
   document.querySelectorAll("[name='trackUrl']").forEach((input) => {
     input.value = "";
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -426,6 +505,7 @@ document.querySelector("#clearTracksButton").addEventListener("click", () => {
 document.querySelector("#resetButton").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
+  ensureThirdTrackRows(1);
   form.reset();
   document.querySelector("#playlistName").value = "3時間ループ";
   document.querySelector("#targetMinutes").value = "180";

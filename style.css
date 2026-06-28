@@ -48,6 +48,12 @@ h2 {
   letter-spacing: 0;
 }
 
+h3 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
 p {
   margin: 0;
   color: var(--muted);
@@ -168,9 +174,43 @@ code {
 
 .track-row {
   display: grid;
-  grid-template-columns: 1fr 120px;
+  grid-template-columns: 1fr 120px auto;
   gap: 10px;
   align-items: end;
+}
+
+.fixed-track {
+  grid-template-columns: 1fr 120px;
+}
+
+.track-group {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.track-group-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.track-group p {
+  font-size: 14px;
+}
+
+.remove-track {
+  width: 44px;
+  padding: 0;
+  background: #f3e9e7;
+  color: var(--danger);
+}
+
+.remove-track:hover {
+  background: #ead6d2;
+  color: var(--danger);
 }
 
 .two {
@@ -272,5 +312,14 @@ button:disabled {
 
   .track-row {
     display: grid;
+  }
+
+  .track-group-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remove-track {
+    width: 100%;
   }
 }
