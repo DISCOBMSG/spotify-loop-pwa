@@ -82,7 +82,37 @@ function installInputClearButtons() {
   });
 }
 
+function normalizeDurationText(value) {
+  const trimmed = value.trim();
+  if (!/^\d{1,4}$/.test(trimmed)) return trimmed;
+
+  const secondsText = trimmed.length === 1 ? trimmed : trimmed.slice(-2);
+  const minutesText = trimmed.length <= 2 ? "0" : trimmed.slice(0, -2);
+  const seconds = Number(secondsText);
+  if (seconds >= 60) return trimmed;
+
+  return `${Number(minutesText)}:${String(seconds).padStart(2, "0")}`;
+}
+
+function normalizeDurationInput(input) {
+  const normalized = normalizeDurationText(input.value);
+  if (normalized !== input.value) {
+    input.value = normalized;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+function installDurationShorthand() {
+  document.querySelectorAll("[name='duration']").forEach((input) => {
+    input.addEventListener("input", () => {
+      if (/^\d{3,4}$/.test(input.value.trim())) normalizeDurationInput(input);
+    });
+    input.addEventListener("blur", () => normalizeDurationInput(input));
+  });
+}
+
 function getFormData() {
+  document.querySelectorAll("[name='duration']").forEach(normalizeDurationInput);
   return {
     clientId: document.querySelector("#clientId").value.trim(),
     playlistName: document.querySelector("#playlistName").value.trim() || "3時間ループ",
@@ -103,8 +133,7 @@ function parseTrackId(value) {
 }
 
 function parseDuration(value) {
-  const trimmed = value.trim();
-  if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(Number(trimmed) * 1000);
+  const trimmed = normalizeDurationText(value);
   const parts = trimmed.split(":").map((part) => Number(part));
   if (![2, 3].includes(parts.length) || parts.some((part) => !Number.isInteger(part))) {
     throw new Error(`曲の長さは 3:45 または 1:02:03 のように入力してください: ${value}`);
@@ -353,6 +382,7 @@ redirectUriEl.textContent = redirectUri();
 setupRedirectUriEl.textContent = redirectUri();
 loadForm();
 installInputClearButtons();
+installDurationShorthand();
 handleCallback();
 
 form.addEventListener("input", saveForm);
