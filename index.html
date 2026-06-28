@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1db954">
+  <title>Spotify 3 Hour Loop</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Spotify 3 Hour Loop</h1>
+        <p>Create a playlist that repeats three tracks until it is just under your target length.</p>
+      </div>
+      <button class="icon-button" id="installButton" type="button" hidden title="Install app" aria-label="Install app">
+        <span aria-hidden="true">+</span>
+      </button>
+    </header>
+
+    <section class="notice" id="callbackNotice" hidden></section>
+
+    <form id="playlistForm" class="panel">
+      <div class="section-heading">
+        <h2>Spotify app</h2>
+        <p>Use your own Spotify Developer app. Client Secret is not needed.</p>
+      </div>
+
+      <label>
+        Client ID
+        <input id="clientId" name="clientId" autocomplete="off" required placeholder="Your Spotify app Client ID">
+      </label>
+
+      <div class="redirect-box">
+        <span>Redirect URI to add in Spotify Dashboard</span>
+        <button id="copyRedirect" type="button">Copy</button>
+        <code id="redirectUri"></code>
+      </div>
+
+      <div class="section-heading">
+        <h2>Playlist</h2>
+      </div>
+
+      <label>
+        Playlist name
+        <input id="playlistName" name="playlistName" required value="My 3-hour loop">
+      </label>
+
+      <div class="tracks">
+        <div class="track-row">
+          <label>
+            Track 1 URL
+            <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
+          </label>
+          <label>
+            Length
+            <input name="duration" placeholder="3:45">
+          </label>
+        </div>
+        <div class="track-row">
+          <label>
+            Track 2 URL
+            <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
+          </label>
+          <label>
+            Length
+            <input name="duration" placeholder="4:02">
+          </label>
+        </div>
+        <div class="track-row">
+          <label>
+            Track 3 URL
+            <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
+          </label>
+          <label>
+            Length
+            <input name="duration" placeholder="2:58">
+          </label>
+        </div>
+      </div>
+
+      <div class="two">
+        <label>
+          Target minutes
+          <input id="targetMinutes" name="targetMinutes" inputmode="decimal" value="180">
+        </label>
+        <label>
+          Buffer seconds
+          <input id="bufferSeconds" name="bufferSeconds" inputmode="decimal" value="1">
+        </label>
+      </div>
+
+      <label class="check">
+        <input id="isPublic" name="isPublic" type="checkbox">
+        Public playlist
+      </label>
+
+      <div class="actions">
+        <button id="createButton" type="submit">Create playlist</button>
+        <button id="resetButton" type="button" class="secondary">Clear saved data</button>
+      </div>
+    </form>
+
+    <section class="panel result" id="result" hidden></section>
+
+    <details class="help">
+      <summary>Setup steps for each user</summary>
+      <ol>
+        <li>Open the Spotify Developer Dashboard.</li>
+        <li>Create an app.</li>
+        <li>Add the Redirect URI shown above.</li>
+        <li>Copy the app Client ID into this form.</li>
+      </ol>
+      <p>Track length auto-fill is attempted when length fields are blank. If Spotify blocks that API, enter lengths manually.</p>
+    </details>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
