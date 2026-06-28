@@ -110,8 +110,11 @@
       <summary>各ユーザー向けセットアップ手順</summary>
       <ol>
         <li><a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Developer Dashboard</a>を開き、Spotifyアカウントでログインします。</li>
-        <li><a href="https://developer.spotify.com/documentation/web-api/concepts/apps" target="_blank" rel="noreferrer">Spotifyアプリ</a>を作成します。アプリ名は自由です。</li>
-        <li>アプリ設定のRedirect URIに、上に表示されているURLをそのまま追加します。最後の <code>/</code> まで一致させてください。</li>
+        <li>Dashboardで「Create app」を押して、Spotifyアプリを作成します。アプリ名と説明は自由です。</li>
+        <li>
+          アプリ設定のRedirect URIに、以下のURLをそのまま追加します。最後の <code>/</code> まで一致させてください。<br>
+          <code id="setupRedirectUri"></code>
+        </li>
         <li>作成したアプリのClient IDをコピーし、このフォームのClient ID欄に貼り付けます。</li>
         <li>曲URL、必要なら曲の長さ、プレイリスト名を入力して作成します。</li>
       </ol>

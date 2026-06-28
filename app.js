@@ -10,6 +10,7 @@ const form = document.querySelector("#playlistForm");
 const callbackNotice = document.querySelector("#callbackNotice");
 const result = document.querySelector("#result");
 const redirectUriEl = document.querySelector("#redirectUri");
+const setupRedirectUriEl = document.querySelector("#setupRedirectUri");
 const installButton = document.querySelector("#installButton");
 
 let deferredInstallPrompt = null;
@@ -248,7 +249,7 @@ async function createPlaylist() {
     body: JSON.stringify({
       name: data.playlistName,
       public: Boolean(data.isPublic),
-      description: `3曲ループを自動作成。長さ ${msToHms(totalMs)}、${items.length}件。`,
+      description: `3曲ループ。長さ ${msToHms(totalMs)}、${items.length}件。`,
     }),
   });
 
@@ -312,6 +313,7 @@ async function handleCallback() {
 }
 
 redirectUriEl.textContent = redirectUri();
+setupRedirectUriEl.textContent = redirectUri();
 loadForm();
 handleCallback();
 
