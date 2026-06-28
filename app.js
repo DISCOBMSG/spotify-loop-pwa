@@ -243,8 +243,7 @@ async function createPlaylist() {
     Math.round(Number(data.bufferSeconds) * 1000),
   );
 
-  const profile = await spotifyFetch("/me");
-  const playlist = await spotifyFetch(`/users/${profile.id}/playlists`, {
+  const playlist = await spotifyFetch("/me/playlists", {
     method: "POST",
     body: JSON.stringify({
       name: data.playlistName,
