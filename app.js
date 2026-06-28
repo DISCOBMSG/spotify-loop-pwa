@@ -104,15 +104,14 @@ function normalizeDurationInput(input) {
 
 function installDurationShorthand() {
   document.querySelectorAll("[name='duration']").forEach((input) => {
-    input.addEventListener("input", () => {
-      if (/^\d{3,4}$/.test(input.value.trim())) normalizeDurationInput(input);
-    });
     input.addEventListener("blur", () => normalizeDurationInput(input));
   });
 }
 
-function getFormData() {
-  document.querySelectorAll("[name='duration']").forEach(normalizeDurationInput);
+function getFormData({ normalizeDurations = false } = {}) {
+  if (normalizeDurations) {
+    document.querySelectorAll("[name='duration']").forEach(normalizeDurationInput);
+  }
   return {
     clientId: document.querySelector("#clientId").value.trim(),
     playlistName: document.querySelector("#playlistName").value.trim() || "3時間ループ",
@@ -296,7 +295,7 @@ async function lookupDurations(trackIds) {
 }
 
 async function createPlaylist() {
-  const data = getFormData();
+  const data = getFormData({ normalizeDurations: true });
   saveForm();
   const trackIds = data.trackUrls.map(parseTrackId);
   const trackUris = trackIds.map((trackId) => `spotify:track:${trackId}`);
