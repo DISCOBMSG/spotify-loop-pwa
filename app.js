@@ -148,7 +148,8 @@ function renumberSlotRows(slotIndex) {
   const displayNumber = displaySlotNumber(slotIndex);
   rows.forEach((row, index) => {
     const trackLabel = row.querySelector("label:first-child");
-    if (trackLabel?.firstChild) trackLabel.firstChild.textContent = `枠${displayNumber}-${index + 1}のURL`;
+    const caption = trackLabel?.querySelector(".field-caption");
+    if (caption) caption.textContent = `枠${displayNumber}-${index + 1}`;
     const removeButton = row.querySelector(".remove-track");
     if (removeButton) removeButton.hidden = rows.length <= 1;
     const upButton = row.querySelector(".move-track[data-direction='-1']");
@@ -232,12 +233,11 @@ function createTrackRow(slotIndex) {
   row.dataset.slot = String(slotIndex);
   row.innerHTML = `
     <label>
-      枠${displaySlotNumber(slotIndex)}のURL
+      <span class="field-caption">枠${displaySlotNumber(slotIndex)}</span>
       <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
     </label>
     <label>
-      長さ
-      <input name="duration" placeholder="2:58">
+      <input name="duration" placeholder="2:58" aria-label="長さ">
     </label>
   `;
   installTrackRow(row, slotIndex);
@@ -306,10 +306,8 @@ function updateAllMoveButtons() {
   slotGroups().forEach((group, index, groups) => {
     const displayNumber = index + 1;
     const heading = group.querySelector("h3");
-    const description = group.querySelector(".track-group-heading p");
     const addButton = group.querySelector(".add-track");
     if (heading) heading.textContent = `枠${displayNumber}`;
-    if (description) description.textContent = `${displayNumber}番目に入ります。`;
     if (addButton) addButton.textContent = "追加";
     const leftButton = group.querySelector(".move-slot[data-direction='-1']");
     const rightButton = group.querySelector(".move-slot[data-direction='1']");
