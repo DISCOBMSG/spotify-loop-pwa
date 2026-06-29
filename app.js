@@ -5,7 +5,7 @@ const SCOPES = "playlist-modify-private playlist-modify-public";
 const STORAGE_KEY = "spotify3hour.form";
 const TOKEN_KEY = "spotify3hour.token";
 const PKCE_KEY = "spotify3hour.pkce";
-const DEFAULT_ARTIST_HINTS = "BE:FIRST, MAZZEL, HANA, STARGLOW, Novel Core, Aile The Shota, edhiii boi, REIKO, ふみの, Ayumu Imazu, BANVOX, SALU, ShowMinorSavage, BMSG";
+const DEFAULT_ARTIST_HINTS = "BE:FIRST, MAZZEL, HANA, STARGLOW, SKY-HI, Novel Core, Aile The Shota, edhiii boi, REIKO, ふみの, Ayumu Imazu, BANVOX, SALU, ShowMinorSavage, BMSG";
 
 const form = document.querySelector("#playlistForm");
 const callbackNotice = document.querySelector("#callbackNotice");
