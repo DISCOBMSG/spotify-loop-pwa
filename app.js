@@ -430,7 +430,7 @@ async function lookupOEmbedTrack(value) {
   const parsed = parseOEmbedTitle(data.title || "");
   return {
     title: parsed.title,
-    artist: data.author_name || parsed.artist,
+    artist: parsed.artist,
     imageUrl: data.thumbnail_url || "",
   };
 }
@@ -469,6 +469,45 @@ function setTrackArt(row, { title = "", artist = "", imageUrl = "", message = ""
   info.classList.toggle("is-muted", Boolean(isMuted || isLoading));
   info.classList.toggle("has-art", Boolean(imageUrl));
   info.classList.toggle("has-meta", Boolean(title || artist || message || isLoading));
+}
+
+function sameLooseText(left, right) {
+  const normalize = (value) => String(value || "")
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "");
+  const a = normalize(left);
+  const b = normalize(right);
+  return Boolean(a && b && (a.includes(b) || b.includes(a)));
+}
+
+async function lookupITunesTrack(title) {
+  if (!title) return null;
+  const params = new URLSearchParams({
+    term: title,
+    media: "music",
+    entity: "song",
+    limit: "5",
+    country: "JP",
+  });
+  const response = await fetch(`https://itunes.apple.com/search?${params.toString()}`);
+  if (!response.ok) return null;
+  const data = await response.json();
+  return (data.results || []).find((item) => sameLooseText(item.trackName, title)) || data.results?.[0] || null;
+}
+
+async function enrichTrackInfoFromITunes(row, title) {
+  const match = await lookupITunesTrack(title);
+  if (!match) return;
+  const currentTitle = row.querySelector(".track-info")?.dataset.title || title;
+  const currentImage = row.querySelector(".track-info")?.dataset.imageUrl || "";
+  setTrackArt(row, {
+    title: currentTitle,
+    artist: match.artistName || "",
+    imageUrl: currentImage || match.artworkUrl100 || "",
+  });
+  if (match.trackTimeMillis) fillDuration(row, match.trackTimeMillis);
+  saveForm();
 }
 
 function updateRowsFromTracks(tracks) {
@@ -655,10 +694,7 @@ async function lookupDurations(trackIds) {
     saveForm();
     return durations;
   } catch (error) {
-    if (error.status === 403) {
-      throw new Error("Spotifyが曲の長さの自動取得を拒否しました。すべての曲の長さを 3:45 のように手入力してください。");
-    }
-    throw error;
+    throw new Error("曲の長さを自動取得できませんでした。すべての長さを 3:45 のように手入力してください。");
   }
 }
 
@@ -674,6 +710,7 @@ async function refreshTrackInfoForRow(row, { silent = false } = {}) {
     const embedded = await lookupOEmbedTrack(value);
     if (embedded.imageUrl) {
       setTrackArt(row, embedded);
+      if (!embedded.artist) await enrichTrackInfoFromITunes(row, embedded.title);
       if (getToken()) await enrichTrackInfoFromApi(row, value, { silent: true });
       saveForm();
       return;
