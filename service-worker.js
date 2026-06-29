@@ -1,4 +1,4 @@
-const CACHE_NAME = "spotify-3hour-loop-v14";
+const CACHE_NAME = "spotify-3hour-loop-v15";
 const ASSETS = [
   "./",
   "./index.html",

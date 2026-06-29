@@ -45,6 +45,7 @@ function loadForm() {
         row.querySelector("[name='duration']").value = slot[rowIndex]?.duration || "";
         setTrackArt(row, {
           title: slot[rowIndex]?.title || "",
+          artist: slot[rowIndex]?.artist || "",
           imageUrl: slot[rowIndex]?.imageUrl || "",
         });
       });
@@ -188,7 +189,11 @@ function installTrackArt(row) {
   info.setAttribute("aria-live", "polite");
   info.innerHTML = `
     <img class="track-art" alt="" hidden>
-    <span class="track-message"></span>
+    <span class="track-meta">
+      <strong class="track-title"></strong>
+      <span class="track-artist"></span>
+      <span class="track-message"></span>
+    </span>
   `;
   row.appendChild(info);
 }
@@ -347,6 +352,7 @@ function readSlots() {
       url: row.querySelector("[name='trackUrl']").value.trim(),
       duration: row.querySelector("[name='duration']").value.trim(),
       title: row.querySelector(".track-info")?.dataset.title || "",
+      artist: row.querySelector(".track-info")?.dataset.artist || "",
       imageUrl: row.querySelector(".track-info")?.dataset.imageUrl || "",
     }))
   ));
@@ -365,6 +371,7 @@ function getFormData({ normalizeDurations = false } = {}) {
         url: row.querySelector("[name='trackUrl']").value.trim(),
         duration: row.querySelector("[name='duration']").value.trim(),
         title: row.querySelector(".track-info")?.dataset.title || "",
+        artist: row.querySelector(".track-info")?.dataset.artist || "",
         imageUrl: row.querySelector(".track-info")?.dataset.imageUrl || "",
       }))
     )),
@@ -406,6 +413,13 @@ function trackTitle(track) {
   return artists ? `${track.name} / ${artists}` : track.name;
 }
 
+function trackDisplay(track) {
+  return {
+    title: track.name || "",
+    artist: (track.artists || []).map((artist) => artist.name).join(", "),
+  };
+}
+
 function trackImageUrl(track) {
   return track.album?.images?.find((image) => image.width <= 300)?.url || track.album?.images?.at(-1)?.url || track.album?.images?.[0]?.url || "";
 }
@@ -415,39 +429,74 @@ async function lookupOEmbedTrack(value) {
   const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
   if (!response.ok) throw new Error("Spotify埋め込み情報を取得できませんでした。");
   const data = await response.json();
+  const parsed = parseOEmbedTitle(data.title || "");
   return {
-    title: data.title || "",
+    title: parsed.title,
+    artist: data.author_name || parsed.artist,
     imageUrl: data.thumbnail_url || "",
   };
 }
 
-function setTrackArt(row, { title = "", imageUrl = "", message = "", isLoading = false, isMuted = false } = {}) {
+function parseOEmbedTitle(value) {
+  const title = String(value || "").trim();
+  const parts = title.split(/\s[-–—]\s/);
+  if (parts.length >= 2) {
+    return {
+      title: parts.slice(0, -1).join(" - "),
+      artist: parts.at(-1),
+    };
+  }
+  return { title, artist: "" };
+}
+
+function setTrackArt(row, { title = "", artist = "", imageUrl = "", message = "", isLoading = false, isMuted = false } = {}) {
   const info = row.querySelector(".track-info");
   if (!info) return;
   info.dataset.title = title || "";
+  info.dataset.artist = artist || "";
   info.dataset.imageUrl = imageUrl || "";
   const image = info.querySelector(".track-art");
+  const titleEl = info.querySelector(".track-title");
+  const artistEl = info.querySelector(".track-artist");
   const messageEl = info.querySelector(".track-message");
   if (image) {
     image.hidden = !imageUrl;
     image.src = imageUrl || "";
     image.alt = title ? `${title} のジャケット画像` : "";
-    image.title = title || "";
+    image.title = [title, artist].filter(Boolean).join(" / ");
   }
+  if (titleEl) titleEl.textContent = title || "";
+  if (artistEl) artistEl.textContent = artist || "";
   if (messageEl) messageEl.textContent = message || (isLoading ? "ジャケット画像を取得中..." : "");
   info.classList.toggle("is-muted", Boolean(isMuted || isLoading));
   info.classList.toggle("has-art", Boolean(imageUrl));
+  info.classList.toggle("has-meta", Boolean(title || artist || message || isLoading));
 }
 
 function updateRowsFromTracks(tracks) {
   document.querySelectorAll(".track-row").forEach((row, index) => {
     const track = tracks[index];
     if (!track) return;
+    const display = trackDisplay(track);
     setTrackArt(row, {
-      title: trackTitle(track),
+      title: display.title,
+      artist: display.artist,
       imageUrl: trackImageUrl(track),
     });
+    fillDuration(row, track.duration_ms);
   });
+}
+
+function formatDurationMs(ms) {
+  const seconds = Math.round(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function fillDuration(row, durationMs, { overwrite = false } = {}) {
+  const input = row.querySelector("[name='duration']");
+  if (!input || (!overwrite && input.value.trim())) return;
+  input.value = formatDurationMs(durationMs);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function msToHms(ms) {
@@ -603,8 +652,7 @@ async function lookupDurations(trackIds) {
     const tracks = await lookupTracks(trackIds);
     const durations = tracks.map((track) => track.duration_ms);
     document.querySelectorAll("[name='duration']").forEach((input, index) => {
-      const seconds = Math.round(durations[index] / 1000);
-      input.value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      input.value = formatDurationMs(durations[index]);
     });
     saveForm();
     return durations;
@@ -628,6 +676,7 @@ async function refreshTrackInfoForRow(row, { silent = false } = {}) {
     const embedded = await lookupOEmbedTrack(value);
     if (embedded.imageUrl) {
       setTrackArt(row, embedded);
+      if (getToken()) await enrichTrackInfoFromApi(row, value, { silent: true });
       saveForm();
       return;
     }
@@ -639,21 +688,28 @@ async function refreshTrackInfoForRow(row, { silent = false } = {}) {
     }
   }
   try {
-    const trackId = parseTrackId(value);
-    const response = await spotifyFetch(`/tracks?ids=${trackId}`);
-    const track = response?.tracks?.[0];
-    if (track) {
-      setTrackArt(row, {
-        title: trackTitle(track),
-        imageUrl: trackImageUrl(track),
-      });
-      saveForm();
-    } else if (!silent) {
-      setTrackArt(row, { message: "ジャケット画像を取得できませんでした。", isMuted: true });
-    }
+    await enrichTrackInfoFromApi(row, value, { silent });
   } catch (error) {
     if (!silent) setTrackArt(row, { message: "ジャケット画像を取得できませんでした。", isMuted: true });
   }
+}
+
+async function enrichTrackInfoFromApi(row, value, { silent = false } = {}) {
+  const trackId = parseTrackId(value);
+  const response = await spotifyFetch(`/tracks?ids=${trackId}`);
+  const track = response?.tracks?.[0];
+  if (!track) {
+    if (!silent) setTrackArt(row, { message: "ジャケット画像を取得できませんでした。", isMuted: true });
+    return;
+  }
+  const display = trackDisplay(track);
+  setTrackArt(row, {
+    title: display.title,
+    artist: display.artist,
+    imageUrl: trackImageUrl(track),
+  });
+  fillDuration(row, track.duration_ms);
+  saveForm();
 }
 
 async function refreshAllTrackInfo({ silent = true } = {}) {
@@ -683,10 +739,13 @@ async function refreshAllTrackInfoFromApi({ silent = true } = {}) {
     const rows = Array.from(document.querySelectorAll(".track-row"));
     tracks.forEach((track, resultIndex) => {
       if (track) {
+        const display = trackDisplay(track);
         setTrackArt(rows[indexes[resultIndex]], {
-          title: trackTitle(track),
+          title: display.title,
+          artist: display.artist,
           imageUrl: trackImageUrl(track),
         });
+        fillDuration(rows[indexes[resultIndex]], track.duration_ms);
       }
     });
     saveForm();
