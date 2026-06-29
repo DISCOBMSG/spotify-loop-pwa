@@ -36,6 +36,7 @@ function loadForm() {
     restoreSlotOrder(data.slotOrder);
     document.querySelector("#clientId").value = data.clientId || "";
     document.querySelector("#playlistName").value = data.playlistName || "3時間ループ";
+    document.querySelector("#artistHints").value = data.artistHints || "";
     document.querySelector("#targetMinutes").value = data.targetMinutes || "180";
     document.querySelector("#bufferSeconds").value = data.bufferSeconds || "1";
     document.querySelector("#isPublic").checked = Boolean(data.isPublic);
@@ -363,6 +364,7 @@ function getFormData({ normalizeDurations = false } = {}) {
   return {
     clientId: document.querySelector("#clientId").value.trim(),
     playlistName: document.querySelector("#playlistName").value.trim() || "3時間ループ",
+    artistHints: document.querySelector("#artistHints").value.trim(),
     slots: readSlots(),
     slotsById: [0, 1, 2].map((slotIndex) => (
       slotRows(slotIndex).map((row) => ({
@@ -481,19 +483,43 @@ function sameLooseText(left, right) {
   return Boolean(a && b && (a.includes(b) || b.includes(a)));
 }
 
+function artistHints() {
+  return document.querySelector("#artistHints").value
+    .split(/[\n,、]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 async function lookupITunesTrack(title) {
   if (!title) return null;
+  const hints = artistHints();
+  const terms = hints.length ? hints.map((hint) => `${title} ${hint}`) : [title];
+  for (const term of terms) {
+    const match = await lookupITunesTrackByTerm(title, term, hints);
+    if (match) return match;
+  }
+  return null;
+}
+
+async function lookupITunesTrackByTerm(title, term, hints) {
   const params = new URLSearchParams({
-    term: title,
+    term,
     media: "music",
     entity: "song",
-    limit: "5",
+    limit: "10",
     country: "JP",
   });
   const response = await fetch(`https://itunes.apple.com/search?${params.toString()}`);
   if (!response.ok) return null;
   const data = await response.json();
-  return (data.results || []).find((item) => sameLooseText(item.trackName, title)) || data.results?.[0] || null;
+  const results = data.results || [];
+  const byTitle = results.filter((item) => sameLooseText(item.trackName, title));
+  const pool = byTitle.length ? byTitle : results;
+  if (!pool.length) return null;
+  if (hints.length) {
+    return pool.find((item) => hints.some((hint) => sameLooseText(item.artistName, hint))) || null;
+  }
+  return pool[0];
 }
 
 async function enrichTrackInfoFromITunes(row, title) {
