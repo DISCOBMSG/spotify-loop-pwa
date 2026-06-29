@@ -12,9 +12,7 @@
 
 ### 2. Spotifyアプリを作成する
 
-Dashboardで `Create app` を押します。
-
-アプリ名と説明は自由です。例:
+Dashboardで `Create app` を押して、Spotifyアプリを作成します。アプリ名(App name)と説明(App description)は自由です。例:
 
 ```text
 App name: 3 Hour Loop Maker
@@ -23,7 +21,7 @@ Description: Creates a rotating 3-slot loop playlist
 
 ### 3. Redirect URIを登録する
 
-アプリ設定のRedirect URIに、このWebアプリ画面に表示されているURLを追加します。
+アプリ設定のRedirect URIsに、以下のURLをそのまま追加します。
 
 ローカル確認なら:
 
