@@ -42,6 +42,10 @@ function loadForm() {
       slotRows(slotIndex).forEach((row, rowIndex) => {
         row.querySelector("[name='trackUrl']").value = slot[rowIndex]?.url || "";
         row.querySelector("[name='duration']").value = slot[rowIndex]?.duration || "";
+        setTrackArt(row, {
+          title: slot[rowIndex]?.title || "",
+          imageUrl: slot[rowIndex]?.imageUrl || "",
+        });
       });
     });
     updateAllMoveButtons();
@@ -176,12 +180,33 @@ function installTrackRowControls(row, slotIndex) {
   });
 }
 
+function installTrackArt(row) {
+  if (row.querySelector(".track-info")) return;
+  const info = document.createElement("div");
+  info.className = "track-info";
+  info.setAttribute("aria-live", "polite");
+  info.innerHTML = `
+    <img class="track-art" alt="" hidden>
+    <span class="track-message"></span>
+  `;
+  row.appendChild(info);
+}
+
 function installTrackRow(row, slotIndex) {
   row.querySelectorAll("input").forEach((input) => {
     installInputClearButton(input);
     if (input.name === "duration") installDurationInput(input);
   });
   installTrackRowControls(row, slotIndex);
+  installTrackArt(row);
+  const urlInput = row.querySelector("[name='trackUrl']");
+  if (!urlInput.dataset.trackInfoInstalled) {
+    urlInput.dataset.trackInfoInstalled = "true";
+    urlInput.addEventListener("blur", () => refreshTrackInfoForRow(row, { silent: true }));
+    urlInput.addEventListener("input", () => {
+      if (!urlInput.value.trim()) setTrackArt(row, {});
+    });
+  }
 }
 
 function createTrackRow(slotIndex) {
@@ -309,6 +334,8 @@ function readSlots() {
     slotRows(slotIndex).map((row) => ({
       url: row.querySelector("[name='trackUrl']").value.trim(),
       duration: row.querySelector("[name='duration']").value.trim(),
+      title: row.querySelector(".track-info")?.dataset.title || "",
+      imageUrl: row.querySelector(".track-info")?.dataset.imageUrl || "",
     }))
   ));
 }
@@ -325,6 +352,8 @@ function getFormData({ normalizeDurations = false } = {}) {
       slotRows(slotIndex).map((row) => ({
         url: row.querySelector("[name='trackUrl']").value.trim(),
         duration: row.querySelector("[name='duration']").value.trim(),
+        title: row.querySelector(".track-info")?.dataset.title || "",
+        imageUrl: row.querySelector(".track-info")?.dataset.imageUrl || "",
       }))
     )),
     slotOrder: slotGroups().map((group) => Number(group.dataset.slot)),
@@ -353,6 +382,44 @@ function parseDuration(value) {
   const [hours, minutes, seconds] = parts.length === 2 ? [0, parts[0], parts[1]] : parts;
   if (minutes >= 60 || seconds >= 60) throw new Error(`曲の長さが正しくありません: ${value}`);
   return ((hours * 3600) + (minutes * 60) + seconds) * 1000;
+}
+
+function trackTitle(track) {
+  const artists = (track.artists || []).map((artist) => artist.name).join(", ");
+  return artists ? `${track.name} / ${artists}` : track.name;
+}
+
+function trackImageUrl(track) {
+  return track.album?.images?.find((image) => image.width <= 300)?.url || track.album?.images?.at(-1)?.url || track.album?.images?.[0]?.url || "";
+}
+
+function setTrackArt(row, { title = "", imageUrl = "", message = "", isLoading = false, isMuted = false } = {}) {
+  const info = row.querySelector(".track-info");
+  if (!info) return;
+  info.dataset.title = title || "";
+  info.dataset.imageUrl = imageUrl || "";
+  const image = info.querySelector(".track-art");
+  const messageEl = info.querySelector(".track-message");
+  if (image) {
+    image.hidden = !imageUrl;
+    image.src = imageUrl || "";
+    image.alt = title ? `${title} のジャケット画像` : "";
+    image.title = title || "";
+  }
+  if (messageEl) messageEl.textContent = message || (isLoading ? "ジャケット画像を取得中..." : "");
+  info.classList.toggle("is-muted", Boolean(isMuted || isLoading));
+  info.classList.toggle("has-art", Boolean(imageUrl));
+}
+
+function updateRowsFromTracks(tracks) {
+  document.querySelectorAll(".track-row").forEach((row, index) => {
+    const track = tracks[index];
+    if (!track) return;
+    setTrackArt(row, {
+      title: trackTitle(track),
+      imageUrl: trackImageUrl(track),
+    });
+  });
 }
 
 function msToHms(ms) {
@@ -492,13 +559,20 @@ async function spotifyFetch(path, options = {}) {
   return json;
 }
 
+async function lookupTracks(trackIds) {
+  const response = await spotifyFetch(`/tracks?ids=${trackIds.join(",")}`);
+  const tracks = response?.tracks || [];
+  if (tracks.length !== trackIds.length || tracks.some((track) => !track)) {
+    throw new Error("Spotifyからすべての曲情報を取得できませんでした。");
+  }
+  updateRowsFromTracks(tracks);
+  saveForm();
+  return tracks;
+}
+
 async function lookupDurations(trackIds) {
   try {
-    const response = await spotifyFetch(`/tracks?ids=${trackIds.join(",")}`);
-    const tracks = response?.tracks || [];
-    if (tracks.length !== trackIds.length || tracks.some((track) => !track)) {
-      throw new Error("Spotifyからすべての曲情報を取得できませんでした。");
-    }
+    const tracks = await lookupTracks(trackIds);
     const durations = tracks.map((track) => track.duration_ms);
     document.querySelectorAll("[name='duration']").forEach((input, index) => {
       const seconds = Math.round(durations[index] / 1000);
@@ -514,6 +588,69 @@ async function lookupDurations(trackIds) {
   }
 }
 
+async function refreshTrackInfoForRow(row, { silent = false } = {}) {
+  const urlInput = row.querySelector("[name='trackUrl']");
+  const value = urlInput.value.trim();
+  if (!value) {
+    setTrackArt(row, {});
+    return;
+  }
+  if (!getToken()) {
+    if (!silent) setTrackArt(row, { message: "Spotifyログイン後にジャケット画像を取得できます。", isMuted: true });
+    return;
+  }
+  try {
+    const trackId = parseTrackId(value);
+    setTrackArt(row, { isLoading: true });
+    const track = await spotifyFetch(`/tracks/${trackId}`);
+    if (track) {
+      setTrackArt(row, {
+        title: trackTitle(track),
+        imageUrl: trackImageUrl(track),
+      });
+      saveForm();
+    }
+  } catch (error) {
+    if (!silent) setTrackArt(row, { message: "ジャケット画像を取得できませんでした。", isMuted: true });
+  }
+}
+
+async function refreshAllTrackInfo({ silent = true } = {}) {
+  if (!getToken()) return;
+  const rows = Array.from(document.querySelectorAll(".track-row"));
+  const ids = [];
+  const indexes = [];
+  rows.forEach((row, index) => {
+    const value = row.querySelector("[name='trackUrl']").value.trim();
+    if (!value) return;
+    try {
+      ids.push(parseTrackId(value));
+      indexes.push(index);
+    } catch {
+      if (!silent) setTrackArt(row, { message: "Spotifyの曲URLとして読み取れませんでした。", isMuted: true });
+    }
+  });
+  if (!ids.length) return;
+  try {
+    const response = await spotifyFetch(`/tracks?ids=${ids.join(",")}`);
+    const tracks = response?.tracks || [];
+    const rows = Array.from(document.querySelectorAll(".track-row"));
+    tracks.forEach((track, resultIndex) => {
+      if (track) {
+        setTrackArt(rows[indexes[resultIndex]], {
+          title: trackTitle(track),
+          imageUrl: trackImageUrl(track),
+        });
+      }
+    });
+    saveForm();
+  } catch {
+    if (!silent) {
+      indexes.forEach((index) => setTrackArt(rows[index], { message: "ジャケット画像を取得できませんでした。", isMuted: true }));
+    }
+  }
+}
+
 async function createPlaylist() {
   const data = getFormData({ normalizeDurations: true });
   saveForm();
@@ -522,6 +659,7 @@ async function createPlaylist() {
   const durationsMs = data.durations.every(Boolean)
     ? data.durations.map(parseDuration)
     : await lookupDurations(trackIds);
+  if (data.durations.every(Boolean)) await refreshAllTrackInfo({ silent: true });
   const hydratedSlots = [];
   let flatIndex = 0;
   data.slots.forEach((slot) => {

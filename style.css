@@ -189,6 +189,35 @@ code {
   align-items: end;
 }
 
+.track-info {
+  grid-column: 1 / -1;
+  min-height: 0;
+  color: #2f5f40;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.track-info:not(.has-art) .track-art,
+.track-info:not(.has-art) .track-message:empty {
+  display: none;
+}
+
+.track-info.is-muted {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.track-art {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 18px rgba(20, 31, 25, 0.12);
+}
+
 .track-group {
   display: grid;
   gap: 10px;
