@@ -184,9 +184,17 @@ code {
 
 .track-row {
   display: grid;
-  grid-template-columns: 1fr 108px 112px;
+  grid-template-columns: minmax(0, 1fr) 112px;
   gap: 10px;
   align-items: end;
+}
+
+.track-row > label:first-child {
+  grid-column: 1 / -1;
+}
+
+.row-actions {
+  grid-column: 2 / -1;
 }
 
 .track-info {
@@ -390,6 +398,11 @@ button:disabled {
 
   .track-row {
     display: grid;
+  }
+
+  .track-row > label:first-child,
+  .row-actions {
+    grid-column: auto;
   }
 
   .track-group-heading {

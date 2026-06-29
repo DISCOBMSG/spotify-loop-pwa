@@ -15,6 +15,7 @@ const installButton = document.querySelector("#installButton");
 const trackGroupsEl = document.querySelector("#trackGroups");
 
 let deferredInstallPrompt = null;
+const trackInfoTimers = new WeakMap();
 
 function redirectUri() {
   return `${window.location.origin}${window.location.pathname}`;
@@ -202,11 +203,22 @@ function installTrackRow(row, slotIndex) {
   const urlInput = row.querySelector("[name='trackUrl']");
   if (!urlInput.dataset.trackInfoInstalled) {
     urlInput.dataset.trackInfoInstalled = "true";
-    urlInput.addEventListener("blur", () => refreshTrackInfoForRow(row, { silent: true }));
+    urlInput.addEventListener("blur", () => refreshTrackInfoForRow(row, { silent: false }));
     urlInput.addEventListener("input", () => {
-      if (!urlInput.value.trim()) setTrackArt(row, {});
+      if (!urlInput.value.trim()) {
+        setTrackArt(row, {});
+        return;
+      }
+      scheduleTrackInfoRefresh(row);
     });
   }
+}
+
+function scheduleTrackInfoRefresh(row) {
+  clearTimeout(trackInfoTimers.get(row));
+  trackInfoTimers.set(row, setTimeout(() => {
+    refreshTrackInfoForRow(row, { silent: true });
+  }, 700));
 }
 
 function createTrackRow(slotIndex) {
@@ -596,19 +608,22 @@ async function refreshTrackInfoForRow(row, { silent = false } = {}) {
     return;
   }
   if (!getToken()) {
-    if (!silent) setTrackArt(row, { message: "Spotifyログイン後にジャケット画像を取得できます。", isMuted: true });
+    setTrackArt(row, { message: "Spotifyログイン後にジャケット画像を取得できます。", isMuted: true });
     return;
   }
   try {
     const trackId = parseTrackId(value);
     setTrackArt(row, { isLoading: true });
-    const track = await spotifyFetch(`/tracks/${trackId}`);
+    const response = await spotifyFetch(`/tracks?ids=${trackId}`);
+    const track = response?.tracks?.[0];
     if (track) {
       setTrackArt(row, {
         title: trackTitle(track),
         imageUrl: trackImageUrl(track),
       });
       saveForm();
+    } else if (!silent) {
+      setTrackArt(row, { message: "ジャケット画像を取得できませんでした。", isMuted: true });
     }
   } catch (error) {
     if (!silent) setTrackArt(row, { message: "ジャケット画像を取得できませんでした。", isMuted: true });
