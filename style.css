@@ -100,7 +100,8 @@ label {
   font-weight: 700;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -111,7 +112,12 @@ input {
   font: inherit;
 }
 
-input:focus {
+textarea {
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus {
   border-color: var(--accent);
   outline: 3px solid rgba(29, 185, 84, 0.16);
 }
