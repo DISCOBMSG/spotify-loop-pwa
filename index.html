@@ -14,7 +14,7 @@
     <header class="topbar">
       <div>
         <h1>3時間ループメーカー for Spotify</h1>
-        <p>3つの枠を指定時間ぎりぎりまで繰り返すプレイリストを作成します。</p>
+        <p>3つの枠から1曲ずつ選び、指定時間ぎりぎりまで繰り返すプレイリストを作成します。</p>
       </div>
       <button class="icon-button" id="installButton" type="button" hidden title="アプリとして追加" aria-label="アプリとして追加">
         <span aria-hidden="true">+</span>
@@ -53,34 +53,66 @@
         <input id="playlistName" name="playlistName" required value="3時間ループ">
       </label>
 
-      <div class="tracks">
-        <div class="track-row fixed-track">
-          <label>
-            曲1のURL
-            <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
-          </label>
-          <label>
-            長さ
-            <input name="duration" placeholder="3:45">
-          </label>
-        </div>
-        <div class="track-row fixed-track">
-          <label>
-            曲2のURL
-            <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
-          </label>
-          <label>
-            長さ
-            <input name="duration" placeholder="4:02">
-          </label>
-        </div>
-        <div class="track-group" id="thirdTrackGroup">
+      <div class="tracks" id="trackGroups">
+        <div class="track-group" data-slot="0">
           <div class="track-group-heading">
-            <h3>曲3枠</h3>
-            <button id="addThirdTrackButton" type="button" class="secondary">曲3枠を追加</button>
+            <div>
+              <h3>曲1枠</h3>
+              <p>この枠から順番に1曲ずつ使います。</p>
+            </div>
+            <div class="group-actions">
+              <button type="button" class="icon-small move-slot" data-direction="-1" title="枠を左へ" aria-label="枠を左へ">←</button>
+              <button type="button" class="icon-small move-slot" data-direction="1" title="枠を右へ" aria-label="枠を右へ">→</button>
+              <button type="button" class="secondary add-track">追加</button>
+            </div>
           </div>
-          <p>曲3枠に複数曲を入れると、曲1、曲2のあとに曲3枠の曲を順番に1曲ずつ入れて繰り返します。</p>
-          <div class="track-row third-track">
+          <div class="track-row" data-slot="0">
+            <label>
+              曲1-1のURL
+              <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
+            </label>
+            <label>
+              長さ
+              <input name="duration" placeholder="3:45">
+            </label>
+          </div>
+        </div>
+        <div class="track-group" data-slot="1">
+          <div class="track-group-heading">
+            <div>
+              <h3>曲2枠</h3>
+              <p>曲1枠の次に入ります。</p>
+            </div>
+            <div class="group-actions">
+              <button type="button" class="icon-small move-slot" data-direction="-1" title="枠を左へ" aria-label="枠を左へ">←</button>
+              <button type="button" class="icon-small move-slot" data-direction="1" title="枠を右へ" aria-label="枠を右へ">→</button>
+              <button type="button" class="secondary add-track">追加</button>
+            </div>
+          </div>
+          <div class="track-row" data-slot="1">
+            <label>
+              曲2-1のURL
+              <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
+            </label>
+            <label>
+              長さ
+              <input name="duration" placeholder="4:02">
+            </label>
+          </div>
+        </div>
+        <div class="track-group" data-slot="2">
+          <div class="track-group-heading">
+            <div>
+              <h3>曲3枠</h3>
+              <p>曲2枠の次に入ります。</p>
+            </div>
+            <div class="group-actions">
+              <button type="button" class="icon-small move-slot" data-direction="-1" title="枠を左へ" aria-label="枠を左へ">←</button>
+              <button type="button" class="icon-small move-slot" data-direction="1" title="枠を右へ" aria-label="枠を右へ">→</button>
+              <button type="button" class="secondary add-track">追加</button>
+            </div>
+          </div>
+          <div class="track-row" data-slot="2">
             <label>
               曲3-1のURL
               <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
@@ -90,6 +122,9 @@
               <input name="duration" placeholder="2:58">
             </label>
           </div>
+        </div>
+        <div class="loop-preview">
+          再生順の例: 枠の左から順に、各枠の曲を1曲ずつ使います。
         </div>
       </div>
 
@@ -128,7 +163,7 @@
           <code id="setupRedirectUri"></code>
         </li>
         <li>作成したアプリのClient IDをコピーし、このフォームのClient ID欄に貼り付けます。</li>
-        <li>曲URL、必要なら曲の長さ、プレイリスト名を入力して作成します。曲3枠は複数曲にできます。</li>
+        <li>曲URL、必要なら曲の長さ、プレイリスト名を入力して作成します。各枠は複数曲にできます。</li>
       </ol>
       <p>長さ欄を空にするとSpotifyから自動取得を試します。Spotify側で拒否された場合は、<code>3:45</code> のように手入力してください。</p>
       <p>長さ欄は入力後に欄を離れると、<code>356</code> は <code>3:56</code>、<code>1000</code> は <code>10:00</code> に整形されます。</p>

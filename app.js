@@ -12,8 +12,7 @@ const result = document.querySelector("#result");
 const redirectUriEl = document.querySelector("#redirectUri");
 const setupRedirectUriEl = document.querySelector("#setupRedirectUri");
 const installButton = document.querySelector("#installButton");
-const thirdTrackGroup = document.querySelector("#thirdTrackGroup");
-const addThirdTrackButton = document.querySelector("#addThirdTrackButton");
+const trackGroupsEl = document.querySelector("#trackGroups");
 
 let deferredInstallPrompt = null;
 
@@ -31,19 +30,21 @@ function loadForm() {
   if (!raw) return;
   try {
     const data = JSON.parse(raw);
-    const trackCount = Math.max(3, data.trackUrls?.length || 3);
-    ensureThirdTrackRows(trackCount - 2);
+    const slots = savedSlots(data);
+    slots.forEach((slot, slotIndex) => ensureSlotRows(slotIndex, Math.max(1, slot.length)));
+    restoreSlotOrder(data.slotOrder);
     document.querySelector("#clientId").value = data.clientId || "";
     document.querySelector("#playlistName").value = data.playlistName || "3時間ループ";
     document.querySelector("#targetMinutes").value = data.targetMinutes || "180";
     document.querySelector("#bufferSeconds").value = data.bufferSeconds || "1";
     document.querySelector("#isPublic").checked = Boolean(data.isPublic);
-    document.querySelectorAll("[name='trackUrl']").forEach((input, index) => {
-      input.value = data.trackUrls?.[index] || "";
+    slots.forEach((slot, slotIndex) => {
+      slotRows(slotIndex).forEach((row, rowIndex) => {
+        row.querySelector("[name='trackUrl']").value = slot[rowIndex]?.url || "";
+        row.querySelector("[name='duration']").value = slot[rowIndex]?.duration || "";
+      });
     });
-    document.querySelectorAll("[name='duration']").forEach((input, index) => {
-      input.value = data.durations?.[index] || "";
-    });
+    updateAllMoveButtons();
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -119,51 +120,184 @@ function installDurationShorthand() {
   document.querySelectorAll("[name='duration']").forEach(installDurationInput);
 }
 
-function thirdTrackRows() {
-  return Array.from(document.querySelectorAll(".third-track"));
+function slotGroup(slotIndex) {
+  return document.querySelector(`.track-group[data-slot="${slotIndex}"]`);
 }
 
-function renumberThirdTrackRows() {
-  thirdTrackRows().forEach((row, index) => {
+function slotGroups() {
+  return Array.from(document.querySelectorAll(".track-group[data-slot]"));
+}
+
+function slotRows(slotIndex) {
+  return Array.from(document.querySelectorAll(`.track-row[data-slot="${slotIndex}"]`));
+}
+
+function renumberSlotRows(slotIndex) {
+  const rows = slotRows(slotIndex);
+  rows.forEach((row, index) => {
     const trackLabel = row.querySelector("label:first-child");
-    if (trackLabel?.firstChild) trackLabel.firstChild.textContent = `曲3-${index + 1}のURL`;
+    if (trackLabel?.firstChild) trackLabel.firstChild.textContent = `曲${slotIndex + 1}-${index + 1}のURL`;
+    const removeButton = row.querySelector(".remove-track");
+    if (removeButton) removeButton.hidden = rows.length <= 1;
+    const upButton = row.querySelector(".move-track[data-direction='-1']");
+    const downButton = row.querySelector(".move-track[data-direction='1']");
+    if (upButton) upButton.disabled = index === 0;
+    if (downButton) downButton.disabled = index === rows.length - 1;
   });
 }
 
-function createThirdTrackRow() {
+function installTrackRowControls(row, slotIndex) {
+  if (row.querySelector(".row-actions")) return;
+  const controls = document.createElement("div");
+  controls.className = "row-actions";
+  controls.innerHTML = `
+    <button type="button" class="icon-small move-track" data-direction="-1" title="上へ" aria-label="上へ">↑</button>
+    <button type="button" class="icon-small move-track" data-direction="1" title="下へ" aria-label="下へ">↓</button>
+    <button type="button" class="icon-small remove-track" title="この曲を削除" aria-label="この曲を削除">×</button>
+  `;
+  row.appendChild(controls);
+  controls.querySelectorAll(".move-track").forEach((button) => {
+    button.addEventListener("click", () => {
+      const direction = Number(button.dataset.direction);
+      moveTrackRow(row, slotIndex, direction);
+    });
+  });
+  controls.querySelector(".remove-track").addEventListener("click", () => {
+    if (slotRows(slotIndex).length <= 1) return;
+    row.remove();
+    renumberSlotRows(slotIndex);
+    saveForm();
+  });
+}
+
+function installTrackRow(row, slotIndex) {
+  row.querySelectorAll("input").forEach((input) => {
+    installInputClearButton(input);
+    if (input.name === "duration") installDurationInput(input);
+  });
+  installTrackRowControls(row, slotIndex);
+}
+
+function createTrackRow(slotIndex) {
   const row = document.createElement("div");
-  row.className = "track-row third-track";
+  row.className = "track-row";
+  row.dataset.slot = String(slotIndex);
   row.innerHTML = `
     <label>
-      曲3のURL
+      曲${slotIndex + 1}のURL
       <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
     </label>
     <label>
       長さ
       <input name="duration" placeholder="2:58">
     </label>
-    <button type="button" class="remove-track" title="この曲を削除" aria-label="この曲を削除">×</button>
   `;
-  row.querySelectorAll("input").forEach((input) => {
-    installInputClearButton(input);
-    if (input.name === "duration") installDurationInput(input);
-  });
-  row.querySelector(".remove-track").addEventListener("click", () => {
-    row.remove();
-    renumberThirdTrackRows();
-    saveForm();
-  });
+  installTrackRow(row, slotIndex);
   return row;
 }
 
-function ensureThirdTrackRows(count) {
-  while (thirdTrackRows().length < count) {
-    thirdTrackGroup.appendChild(createThirdTrackRow());
+function ensureSlotRows(slotIndex, count) {
+  const group = slotGroup(slotIndex);
+  while (slotRows(slotIndex).length < count) {
+    group.appendChild(createTrackRow(slotIndex));
   }
-  while (thirdTrackRows().length > count && thirdTrackRows().length > 1) {
-    thirdTrackRows().at(-1).remove();
+  while (slotRows(slotIndex).length > count && slotRows(slotIndex).length > 1) {
+    slotRows(slotIndex).at(-1).remove();
   }
-  renumberThirdTrackRows();
+  renumberSlotRows(slotIndex);
+}
+
+function initializeTrackRows() {
+  [0, 1, 2].forEach((slotIndex) => {
+    slotRows(slotIndex).forEach((row) => installTrackRow(row, slotIndex));
+    renumberSlotRows(slotIndex);
+  });
+  updateAllMoveButtons();
+}
+
+function moveTrackRow(row, slotIndex, direction) {
+  const rows = slotRows(slotIndex);
+  const index = rows.indexOf(row);
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= rows.length) return;
+  if (direction < 0) {
+    rows[nextIndex].before(row);
+  } else {
+    rows[nextIndex].after(row);
+  }
+  renumberSlotRows(slotIndex);
+  saveForm();
+}
+
+function restoreSlotOrder(slotOrder) {
+  if (!Array.isArray(slotOrder)) return;
+  const validOrder = slotOrder.map(Number).filter((slotIndex) => [0, 1, 2].includes(slotIndex));
+  if (new Set(validOrder).size !== 3) return;
+  validOrder.forEach((slotIndex) => {
+    trackGroupsEl.appendChild(slotGroup(slotIndex));
+  });
+  trackGroupsEl.appendChild(document.querySelector(".loop-preview"));
+  updateAllMoveButtons();
+}
+
+function moveSlot(group, direction) {
+  const groups = slotGroups();
+  const index = groups.indexOf(group);
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= groups.length) return;
+  if (direction < 0) {
+    groups[nextIndex].before(group);
+  } else {
+    groups[nextIndex].after(group);
+  }
+  updateAllMoveButtons();
+  saveForm();
+}
+
+function updateAllMoveButtons() {
+  slotGroups().forEach((group, index, groups) => {
+    const leftButton = group.querySelector(".move-slot[data-direction='-1']");
+    const rightButton = group.querySelector(".move-slot[data-direction='1']");
+    if (leftButton) leftButton.disabled = index === 0;
+    if (rightButton) rightButton.disabled = index === groups.length - 1;
+  });
+  [0, 1, 2].forEach(renumberSlotRows);
+  updateLoopPreview();
+}
+
+function updateLoopPreview() {
+  const preview = document.querySelector(".loop-preview");
+  if (!preview) return;
+  const labels = slotGroups().map((group) => {
+    const slotIndex = Number(group.dataset.slot);
+    return `曲${slotIndex + 1}-1`;
+  });
+  preview.textContent = `再生順の例: ${labels.join(" → ")} → ${labels.map((label) => label.replace("-1", "-2")).join(" → ")}...`;
+}
+
+function savedSlots(data) {
+  if (Array.isArray(data.slotsById)) {
+    return [0, 1, 2].map((slotIndex) => data.slotsById[slotIndex] || []);
+  }
+  if (Array.isArray(data.slots)) {
+    return [0, 1, 2].map((slotIndex) => data.slots[slotIndex] || []);
+  }
+  const urls = data.trackUrls || [];
+  const durations = data.durations || [];
+  return [
+    [{ url: urls[0] || "", duration: durations[0] || "" }],
+    [{ url: urls[1] || "", duration: durations[1] || "" }],
+    urls.slice(2).map((url, index) => ({ url, duration: durations[index + 2] || "" })),
+  ];
+}
+
+function readSlots() {
+  return slotGroups().map((group) => Number(group.dataset.slot)).map((slotIndex) => (
+    slotRows(slotIndex).map((row) => ({
+      url: row.querySelector("[name='trackUrl']").value.trim(),
+      duration: row.querySelector("[name='duration']").value.trim(),
+    }))
+  ));
 }
 
 function getFormData({ normalizeDurations = false } = {}) {
@@ -173,6 +307,14 @@ function getFormData({ normalizeDurations = false } = {}) {
   return {
     clientId: document.querySelector("#clientId").value.trim(),
     playlistName: document.querySelector("#playlistName").value.trim() || "3時間ループ",
+    slots: readSlots(),
+    slotsById: [0, 1, 2].map((slotIndex) => (
+      slotRows(slotIndex).map((row) => ({
+        url: row.querySelector("[name='trackUrl']").value.trim(),
+        duration: row.querySelector("[name='duration']").value.trim(),
+      }))
+    )),
+    slotOrder: slotGroups().map((group) => Number(group.dataset.slot)),
     trackUrls: Array.from(document.querySelectorAll("[name='trackUrl']")).map((input) => input.value.trim()),
     durations: Array.from(document.querySelectorAll("[name='duration']")).map((input) => input.value.trim()),
     targetMinutes: document.querySelector("#targetMinutes").value.trim() || "180",
@@ -209,31 +351,25 @@ function msToHms(ms) {
   return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function buildLoop(trackUris, durationsMs, targetMs, bufferMs) {
+function buildLoop(slots, targetMs, bufferMs) {
   const limitMs = targetMs - bufferMs;
   if (limitMs <= 0) throw new Error("余白は目標時間より短くしてください。");
+  if (slots.some((slot) => !slot.length)) throw new Error("曲1枠、曲2枠、曲3枠にそれぞれ1曲以上入力してください。");
   const items = [];
   let totalMs = 0;
-  let thirdIndex = 2;
+  let cycle = 0;
 
   while (true) {
-    const cycleIndexes = [0, 1, thirdIndex];
-    let addedInCycle = false;
-
-    for (const index of cycleIndexes) {
-      if (totalMs + durationsMs[index] > limitMs) {
+    for (const slot of slots) {
+      const track = slot[cycle % slot.length];
+      if (totalMs + track.durationMs > limitMs) {
         if (!items.length) throw new Error("指定した目標時間内に曲が入りません。");
         return { items, totalMs };
       }
-      items.push(trackUris[index]);
-      totalMs += durationsMs[index];
-      addedInCycle = true;
+      items.push(track.uri);
+      totalMs += track.durationMs;
     }
-
-    if (addedInCycle) {
-      thirdIndex += 1;
-      if (thirdIndex >= trackUris.length) thirdIndex = 2;
-    }
+    cycle += 1;
   }
 }
 
@@ -373,9 +509,21 @@ async function createPlaylist() {
   const durationsMs = data.durations.every(Boolean)
     ? data.durations.map(parseDuration)
     : await lookupDurations(trackIds);
+  const hydratedSlots = [];
+  let flatIndex = 0;
+  data.slots.forEach((slot) => {
+    hydratedSlots.push(slot.map(() => {
+      const track = {
+        uri: trackUris[flatIndex],
+        durationMs: durationsMs[flatIndex],
+      };
+      flatIndex += 1;
+      return track;
+    }));
+  });
+  const hasRotation = hydratedSlots.some((slot) => slot.length > 1);
   const { items, totalMs } = buildLoop(
-    trackUris,
-    durationsMs,
+    hydratedSlots,
     Math.round(Number(data.targetMinutes) * 60 * 1000),
     Math.round(Number(data.bufferSeconds) * 1000),
   );
@@ -385,7 +533,7 @@ async function createPlaylist() {
     body: JSON.stringify({
       name: data.playlistName,
       public: Boolean(data.isPublic),
-      description: `${trackUris.length === 3 ? "3曲ループ" : "曲3ローテーション"}。長さ ${msToHms(totalMs)}、${items.length}件。`,
+      description: `${hasRotation ? "3枠ローテーション" : "3曲ループ"}。長さ ${msToHms(totalMs)}、${items.length}件。`,
     }),
   });
 
@@ -453,6 +601,7 @@ setupRedirectUriEl.textContent = redirectUri();
 loadForm();
 installInputClearButtons();
 installDurationShorthand();
+initializeTrackRows();
 handleCallback();
 
 form.addEventListener("input", saveForm);
@@ -481,15 +630,31 @@ document.querySelector("#copyRedirect").addEventListener("click", async () => {
   }, 1200);
 });
 
-addThirdTrackButton.addEventListener("click", () => {
-  thirdTrackGroup.appendChild(createThirdTrackRow());
-  renumberThirdTrackRows();
-  saveForm();
-  thirdTrackRows().at(-1).querySelector("[name='trackUrl']").focus();
+trackGroupsEl.addEventListener("click", (event) => {
+  const addButton = event.target.closest(".add-track");
+  if (addButton) {
+    const group = addButton.closest(".track-group");
+    const slotIndex = Number(group.dataset.slot);
+    group.appendChild(createTrackRow(slotIndex));
+    renumberSlotRows(slotIndex);
+    saveForm();
+    slotRows(slotIndex).at(-1).querySelector("[name='trackUrl']").focus();
+    return;
+  }
+
+  const moveSlotButton = event.target.closest(".move-slot");
+  if (!moveSlotButton) return;
+  const group = moveSlotButton.closest(".track-group");
+  moveSlot(group, Number(moveSlotButton.dataset.direction));
 });
 
 document.querySelector("#clearTracksButton").addEventListener("click", () => {
-  ensureThirdTrackRows(1);
+  [0, 1, 2].forEach((slotIndex) => ensureSlotRows(slotIndex, 1));
+  [0, 1, 2].forEach((slotIndex) => {
+    trackGroupsEl.appendChild(slotGroup(slotIndex));
+  });
+  trackGroupsEl.appendChild(document.querySelector(".loop-preview"));
+  updateAllMoveButtons();
   document.querySelectorAll("[name='trackUrl']").forEach((input) => {
     input.value = "";
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -505,7 +670,12 @@ document.querySelector("#clearTracksButton").addEventListener("click", () => {
 document.querySelector("#resetButton").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
-  ensureThirdTrackRows(1);
+  [0, 1, 2].forEach((slotIndex) => ensureSlotRows(slotIndex, 1));
+  [0, 1, 2].forEach((slotIndex) => {
+    trackGroupsEl.appendChild(slotGroup(slotIndex));
+  });
+  trackGroupsEl.appendChild(document.querySelector(".loop-preview"));
+  updateAllMoveButtons();
   form.reset();
   document.querySelector("#playlistName").value = "3時間ループ";
   document.querySelector("#targetMinutes").value = "180";
