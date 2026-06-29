@@ -5,6 +5,7 @@ const SCOPES = "playlist-modify-private playlist-modify-public";
 const STORAGE_KEY = "spotify3hour.form";
 const TOKEN_KEY = "spotify3hour.token";
 const PKCE_KEY = "spotify3hour.pkce";
+const DEFAULT_ARTIST_HINTS = "BE:FIRST, MAZZEL, HANA, STARGLOW, Novel Core, Aile The Shota, edhiii boi, REIKO, ふみの, Ayumu Imazu, BANVOX, SALU, ShowMinorSavage, BMSG";
 
 const form = document.querySelector("#playlistForm");
 const callbackNotice = document.querySelector("#callbackNotice");
@@ -28,7 +29,10 @@ function saveForm() {
 
 function loadForm() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return;
+  if (!raw) {
+    document.querySelector("#artistHints").value = DEFAULT_ARTIST_HINTS;
+    return;
+  }
   try {
     const data = JSON.parse(raw);
     const slots = savedSlots(data);
@@ -36,7 +40,7 @@ function loadForm() {
     restoreSlotOrder(data.slotOrder);
     document.querySelector("#clientId").value = data.clientId || "";
     document.querySelector("#playlistName").value = data.playlistName || "3時間ループ";
-    document.querySelector("#artistHints").value = data.artistHints || "";
+    document.querySelector("#artistHints").value = data.artistHints || DEFAULT_ARTIST_HINTS;
     document.querySelector("#targetMinutes").value = data.targetMinutes || "180";
     document.querySelector("#bufferSeconds").value = data.bufferSeconds || "1";
     document.querySelector("#isPublic").checked = Boolean(data.isPublic);
@@ -54,6 +58,7 @@ function loadForm() {
     updateAllMoveButtons();
   } catch {
     localStorage.removeItem(STORAGE_KEY);
+    document.querySelector("#artistHints").value = DEFAULT_ARTIST_HINTS;
   }
 }
 
@@ -995,6 +1000,7 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   updateAllMoveButtons();
   form.reset();
   document.querySelector("#playlistName").value = "3時間ループ";
+  document.querySelector("#artistHints").value = DEFAULT_ARTIST_HINTS;
   document.querySelector("#targetMinutes").value = "180";
   document.querySelector("#bufferSeconds").value = "1";
   result.hidden = true;
