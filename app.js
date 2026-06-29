@@ -132,11 +132,17 @@ function slotRows(slotIndex) {
   return Array.from(document.querySelectorAll(`.track-row[data-slot="${slotIndex}"]`));
 }
 
+function displaySlotNumber(slotIndex) {
+  const index = slotGroups().indexOf(slotGroup(slotIndex));
+  return index >= 0 ? index + 1 : slotIndex + 1;
+}
+
 function renumberSlotRows(slotIndex) {
   const rows = slotRows(slotIndex);
+  const displayNumber = displaySlotNumber(slotIndex);
   rows.forEach((row, index) => {
     const trackLabel = row.querySelector("label:first-child");
-    if (trackLabel?.firstChild) trackLabel.firstChild.textContent = `曲${slotIndex + 1}-${index + 1}のURL`;
+    if (trackLabel?.firstChild) trackLabel.firstChild.textContent = `枠${displayNumber}-${index + 1}のURL`;
     const removeButton = row.querySelector(".remove-track");
     if (removeButton) removeButton.hidden = rows.length <= 1;
     const upButton = row.querySelector(".move-track[data-direction='-1']");
@@ -184,7 +190,7 @@ function createTrackRow(slotIndex) {
   row.dataset.slot = String(slotIndex);
   row.innerHTML = `
     <label>
-      曲${slotIndex + 1}のURL
+      枠${displaySlotNumber(slotIndex)}のURL
       <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
     </label>
     <label>
@@ -256,6 +262,13 @@ function moveSlot(group, direction) {
 
 function updateAllMoveButtons() {
   slotGroups().forEach((group, index, groups) => {
+    const displayNumber = index + 1;
+    const heading = group.querySelector("h3");
+    const description = group.querySelector(".track-group-heading p");
+    const addButton = group.querySelector(".add-track");
+    if (heading) heading.textContent = `枠${displayNumber}`;
+    if (description) description.textContent = `${displayNumber}番目に入ります。`;
+    if (addButton) addButton.textContent = "追加";
     const leftButton = group.querySelector(".move-slot[data-direction='-1']");
     const rightButton = group.querySelector(".move-slot[data-direction='1']");
     if (leftButton) leftButton.disabled = index === 0;
@@ -270,7 +283,7 @@ function updateLoopPreview() {
   if (!preview) return;
   const labels = slotGroups().map((group) => {
     const slotIndex = Number(group.dataset.slot);
-    return `曲${slotIndex + 1}-1`;
+    return `枠${displaySlotNumber(slotIndex)}-1`;
   });
   preview.textContent = `再生順の例: ${labels.join(" → ")} → ${labels.map((label) => label.replace("-1", "-2")).join(" → ")}...`;
 }
@@ -354,7 +367,7 @@ function msToHms(ms) {
 function buildLoop(slots, targetMs, bufferMs) {
   const limitMs = targetMs - bufferMs;
   if (limitMs <= 0) throw new Error("余白は目標時間より短くしてください。");
-  if (slots.some((slot) => !slot.length)) throw new Error("曲1枠、曲2枠、曲3枠にそれぞれ1曲以上入力してください。");
+  if (slots.some((slot) => !slot.length)) throw new Error("3つの枠にそれぞれ1曲以上入力してください。");
   const items = [];
   let totalMs = 0;
   let cycle = 0;

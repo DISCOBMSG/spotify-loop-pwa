@@ -1,6 +1,6 @@
 {
-  "name": "3時間ループメーカー for Spotify",
-  "short_name": "3時間ループ",
+  "name": "ループプレイリストメーカー for Spotify",
+  "short_name": "ループメーカー",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f5f7f6",

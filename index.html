@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1db954">
-  <title>3時間ループメーカー for Spotify</title>
+  <title>ループプレイリストメーカー for Spotify</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
@@ -13,7 +13,7 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <h1>3時間ループメーカー for Spotify</h1>
+        <h1>ループプレイリストメーカー for Spotify</h1>
         <p>3つの枠から1曲ずつ選び、指定時間ぎりぎりまで繰り返すプレイリストを作成します。</p>
       </div>
       <button class="icon-button" id="installButton" type="button" hidden title="アプリとして追加" aria-label="アプリとして追加">
@@ -57,7 +57,7 @@
         <div class="track-group" data-slot="0">
           <div class="track-group-heading">
             <div>
-              <h3>曲1枠</h3>
+              <h3>枠1</h3>
               <p>この枠から順番に1曲ずつ使います。</p>
             </div>
             <div class="group-actions">
@@ -68,7 +68,7 @@
           </div>
           <div class="track-row" data-slot="0">
             <label>
-              曲1-1のURL
+              枠1-1のURL
               <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
             </label>
             <label>
@@ -80,8 +80,8 @@
         <div class="track-group" data-slot="1">
           <div class="track-group-heading">
             <div>
-              <h3>曲2枠</h3>
-              <p>曲1枠の次に入ります。</p>
+              <h3>枠2</h3>
+              <p>2番目に入ります。</p>
             </div>
             <div class="group-actions">
               <button type="button" class="icon-small move-slot" data-direction="-1" title="枠を左へ" aria-label="枠を左へ">←</button>
@@ -91,7 +91,7 @@
           </div>
           <div class="track-row" data-slot="1">
             <label>
-              曲2-1のURL
+              枠2-1のURL
               <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
             </label>
             <label>
@@ -103,8 +103,8 @@
         <div class="track-group" data-slot="2">
           <div class="track-group-heading">
             <div>
-              <h3>曲3枠</h3>
-              <p>曲2枠の次に入ります。</p>
+              <h3>枠3</h3>
+              <p>3番目に入ります。</p>
             </div>
             <div class="group-actions">
               <button type="button" class="icon-small move-slot" data-direction="-1" title="枠を左へ" aria-label="枠を左へ">←</button>
@@ -114,7 +114,7 @@
           </div>
           <div class="track-row" data-slot="2">
             <label>
-              曲3-1のURL
+              枠3-1のURL
               <input name="trackUrl" required placeholder="https://open.spotify.com/track/...">
             </label>
             <label>
