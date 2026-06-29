@@ -385,6 +385,11 @@ function parseTrackId(value) {
   throw new Error(`Spotifyの曲URLとして読み取れませんでした: ${value}`);
 }
 
+function spotifyTrackUrl(value) {
+  const trackId = parseTrackId(value);
+  return `https://open.spotify.com/track/${trackId}`;
+}
+
 function parseDuration(value) {
   const trimmed = normalizeDurationText(value);
   const parts = trimmed.split(":").map((part) => Number(part));
@@ -403,6 +408,17 @@ function trackTitle(track) {
 
 function trackImageUrl(track) {
   return track.album?.images?.find((image) => image.width <= 300)?.url || track.album?.images?.at(-1)?.url || track.album?.images?.[0]?.url || "";
+}
+
+async function lookupOEmbedTrack(value) {
+  const url = spotifyTrackUrl(value);
+  const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
+  if (!response.ok) throw new Error("Spotify埋め込み情報を取得できませんでした。");
+  const data = await response.json();
+  return {
+    title: data.title || "",
+    imageUrl: data.thumbnail_url || "",
+  };
 }
 
 function setTrackArt(row, { title = "", imageUrl = "", message = "", isLoading = false, isMuted = false } = {}) {
@@ -607,13 +623,23 @@ async function refreshTrackInfoForRow(row, { silent = false } = {}) {
     setTrackArt(row, {});
     return;
   }
-  if (!getToken()) {
-    setTrackArt(row, { message: "Spotifyログイン後にジャケット画像を取得できます。", isMuted: true });
-    return;
+  try {
+    setTrackArt(row, { isLoading: true });
+    const embedded = await lookupOEmbedTrack(value);
+    if (embedded.imageUrl) {
+      setTrackArt(row, embedded);
+      saveForm();
+      return;
+    }
+    throw new Error("ジャケット画像が見つかりませんでした。");
+  } catch {
+    if (!getToken()) {
+      setTrackArt(row, { message: "ジャケット画像を取得できませんでした。作成ボタンでSpotifyログイン後に再取得します。", isMuted: true });
+      return;
+    }
   }
   try {
     const trackId = parseTrackId(value);
-    setTrackArt(row, { isLoading: true });
     const response = await spotifyFetch(`/tracks?ids=${trackId}`);
     const track = response?.tracks?.[0];
     if (track) {
@@ -631,6 +657,11 @@ async function refreshTrackInfoForRow(row, { silent = false } = {}) {
 }
 
 async function refreshAllTrackInfo({ silent = true } = {}) {
+  const rows = Array.from(document.querySelectorAll(".track-row"));
+  await Promise.all(rows.map((row) => refreshTrackInfoForRow(row, { silent })));
+}
+
+async function refreshAllTrackInfoFromApi({ silent = true } = {}) {
   if (!getToken()) return;
   const rows = Array.from(document.querySelectorAll(".track-row"));
   const ids = [];
@@ -674,7 +705,7 @@ async function createPlaylist() {
   const durationsMs = data.durations.every(Boolean)
     ? data.durations.map(parseDuration)
     : await lookupDurations(trackIds);
-  if (data.durations.every(Boolean)) await refreshAllTrackInfo({ silent: true });
+  if (data.durations.every(Boolean)) await refreshAllTrackInfoFromApi({ silent: true });
   const hydratedSlots = [];
   let flatIndex = 0;
   data.slots.forEach((slot) => {
