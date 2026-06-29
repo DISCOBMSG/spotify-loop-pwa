@@ -843,7 +843,6 @@ async function createPlaylist() {
       return track;
     }));
   });
-  const hasRotation = hydratedSlots.some((slot) => slot.length > 1);
   const { items, totalMs } = buildLoop(
     hydratedSlots,
     Math.round(Number(data.targetMinutes) * 60 * 1000),
@@ -855,7 +854,7 @@ async function createPlaylist() {
     body: JSON.stringify({
       name: data.playlistName,
       public: Boolean(data.isPublic),
-      description: `${hasRotation ? "3枠ローテーション" : "3曲ループ"}。長さ ${msToHms(totalMs)}、${items.length}件。`,
+      description: `長さ ${msToHms(totalMs)}、${items.length}件。ループプレイリストメーカー(https://discobmsg.github.io/spotify-loop-pwa/)にて作成。`,
     }),
   });
 
