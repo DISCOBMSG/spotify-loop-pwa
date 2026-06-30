@@ -44,6 +44,7 @@ function loadForm() {
     document.querySelector("#targetMinutes").value = data.targetMinutes || "180";
     document.querySelector("#bufferSeconds").value = data.bufferSeconds || "1";
     document.querySelector("#isPublic").checked = Boolean(data.isPublic);
+    document.querySelector("#endOnThirdSlot").checked = Boolean(data.endOnThirdSlot);
     slots.forEach((slot, slotIndex) => {
       slotRows(slotIndex).forEach((row, rowIndex) => {
         row.querySelector("[name='trackUrl']").value = slot[rowIndex]?.url || "";
@@ -386,6 +387,7 @@ function getFormData({ normalizeDurations = false } = {}) {
     targetMinutes: document.querySelector("#targetMinutes").value.trim() || "180",
     bufferSeconds: document.querySelector("#bufferSeconds").value.trim() || "1",
     isPublic: document.querySelector("#isPublic").checked,
+    endOnThirdSlot: document.querySelector("#endOnThirdSlot").checked,
   };
 }
 
@@ -576,23 +578,31 @@ function msToHms(ms) {
   return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function buildLoop(slots, targetMs, bufferMs) {
+function buildLoop(slots, targetMs, bufferMs, { endOnThirdSlot = false } = {}) {
   const limitMs = targetMs - bufferMs;
   if (limitMs <= 0) throw new Error("余白は目標時間より短くしてください。");
   if (slots.some((slot) => !slot.length)) throw new Error("3つの枠にそれぞれ1曲以上入力してください。");
   const items = [];
   let totalMs = 0;
   let cycle = 0;
+  let thirdSlotCandidate = null;
 
   while (true) {
-    for (const slot of slots) {
+    for (const [slotIndex, slot] of slots.entries()) {
       const track = slot[cycle % slot.length];
       if (totalMs + track.durationMs > limitMs) {
         if (!items.length) throw new Error("指定した目標時間内に曲が入りません。");
+        if (endOnThirdSlot) {
+          if (!thirdSlotCandidate) throw new Error("指定時間内に3枠目まで入る組み合わせがありません。目標時間を長くするか、余白を短くしてください。");
+          return thirdSlotCandidate;
+        }
         return { items, totalMs };
       }
       items.push(track.uri);
       totalMs += track.durationMs;
+      if (endOnThirdSlot && slotIndex === 2) {
+        thirdSlotCandidate = { items: [...items], totalMs };
+      }
     }
     cycle += 1;
   }
@@ -847,6 +857,7 @@ async function createPlaylist() {
     hydratedSlots,
     Math.round(Number(data.targetMinutes) * 60 * 1000),
     Math.round(Number(data.bufferSeconds) * 1000),
+    { endOnThirdSlot: data.endOnThirdSlot },
   );
 
   const playlist = await spotifyFetch("/me/playlists", {
@@ -1002,6 +1013,7 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   document.querySelector("#artistHints").value = DEFAULT_ARTIST_HINTS;
   document.querySelector("#targetMinutes").value = "180";
   document.querySelector("#bufferSeconds").value = "1";
+  document.querySelector("#endOnThirdSlot").checked = false;
   result.hidden = true;
   refreshClearButtons();
 });
